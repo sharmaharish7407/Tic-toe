@@ -1,61 +1,118 @@
-import { useContext, useState } from "react"
-import GameBoard from "./components/GameBoard"
-import Players from "./components/Players"
+import { useState } from "react";
+import GameBoard from "./components/GameBoard";
+import Players from "./components/Players";
 import Log from "./components/Log";
-import { Theme } from "./main";
-import { useCallback } from "react"
+import { WINNING_COMBINATIONS } from "./winnig-combination";
+import GameOver from "./GameOver";
 
-function App() {
-const[activePlayer,setActivePlayer] = useState("X");
-  const { theme, setTheme } = useContext(Theme)
+const initialGameBoard = [
+  [null, null, null],
+  [null, null, null],
+  [null, null, null],
+];
 
+function derivedActivePlayer(gameTurns) {
+  let currentPlayer = "X";
 
-const [gameTurns,setGameTurns]=useState([])
-
-
-  function toggleTheme() {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"))
+  if (gameTurns.length > 0 && gameTurns[0].player === "X") {
+    currentPlayer = "O";
   }
 
-const handleSelectSquare = useCallback((rowIndex, colIndex) => {
-  console.log("clicked")
-
-  setActivePlayer((cur) => (cur === "X" ? "0" : "X"))
-
-  setGameTurns((prevTurns) => {
-    const currentPlayer =
-      prevTurns.length > 0 && prevTurns[0].player === "X" ? "0" : "X"
-
-    const updatedTurns = [
-      {
-        square: { row: rowIndex, col: colIndex },
-        player: currentPlayer,
-      },
-      ...prevTurns,
-    ]
-
-    return updatedTurns
-  })
-}, [rowIndex,colIndex])
-return (
-    <>
-      <main>
-      <button onClick={toggleTheme}>
-        Switch Theme
-      </button>
-          <div className={theme === "dark" ? "dark-theme" : "light-theme"}>
-
-        <div className="game-container">
-          <ol id="palyers" className="highlight-player">
-  <Players  playerName="Player 1" symbol="X"  isActive={activePlayer==='X'}/>
-  <Players  playerName="Player 2"  symbol="0" isActive={activePlayer==='0'}/>
-      </ol> 
-              <GameBoard onSelectSquare={handleSelectSquare} turns={gameTurns} />
-       </div>
-       </div>
-       <Log turns={gameTurns}/>
-      </main>
-    </>
-  )
+  return currentPlayer;
 }
-export default App
+
+function App() {
+  const [players, setPlayers] = useState({
+    X: "Player 1",
+    O: "Player 2",
+  });
+
+  const [gameTurns, setGameTurns] = useState([]);
+
+  const activePlayer = derivedActivePlayer(gameTurns);
+
+  let gameBoard = initialGameBoard.map((row) => [...row]);
+
+  for (const turn of gameTurns) {
+    const { row, col } = turn.square;
+    gameBoard[row][col] = turn.player;
+  }
+
+  let winner;
+
+  for (const combo of WINNING_COMBINATIONS) {
+    const a = gameBoard[combo[0].row][combo[0].col];
+    const b = gameBoard[combo[1].row][combo[1].col];
+    const c = gameBoard[combo[2].row][combo[2].col];
+
+    if (a && a === b && a === c) {
+      winner = players[a];
+    }
+  }
+
+  const hasDraw = gameTurns.length === 9 && !winner;
+
+  function handleSelectSquare(rowIndex, colIndex) {
+    setGameTurns((prev) => {
+      const currentPlayer = derivedActivePlayer(prev);
+
+      const updated = [
+        {
+          square: { row: rowIndex, col: colIndex },
+          player: currentPlayer,
+        },
+        ...prev,
+      ];
+
+      return updated;
+    });
+  }
+
+  function handleRestart() {
+    setGameTurns([]);
+  }
+
+  function handlePlayerNameChange(symbol, newName) {
+    setPlayers((prev) => ({
+      ...prev,
+      [symbol]: newName,
+    }));
+  }
+
+  return (
+    <main>
+      <div className="game-container">
+
+        <ol className="highlight-player">
+          <Players
+            initalName={players.X}
+            symbol="X"
+            isActive={activePlayer === "X"}
+            onChangeName={handlePlayerNameChange}
+          />
+
+          <Players
+            initalName={players.O}
+            symbol="O"
+            isActive={activePlayer === "O"}
+            onChangeName={handlePlayerNameChange}
+          />
+        </ol>
+
+        {(winner || hasDraw) && (
+          <GameOver winner={winner} onRestart={handleRestart} />
+        )}
+
+        <GameBoard
+          board={gameBoard}
+          onSelectSquare={handleSelectSquare}
+        />
+
+      </div>
+
+      <Log turns={gameTurns} />
+    </main>
+  );
+}
+
+export default App;
